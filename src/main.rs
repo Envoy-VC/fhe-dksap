@@ -2,97 +2,75 @@ use secp256k1::rand;
 use secp256k1::{PublicKey, Secp256k1, SecretKey};
 
 use sha3::{Digest, Keccak256};
-
-use tfhe::integer::U256;
 use tfhe::prelude::{FheDecrypt, FheEncrypt};
-use tfhe::{
-    ClientKey, Config, ConfigBuilder, FheUint256, ServerKey, generate_keys, set_server_key,
-};
+use tfhe::{ConfigBuilder, FheUint256, generate_keys, integer::U256, set_server_key};
 
-pub fn generate_secp256k1_keypair(secp: &Secp256k1<secp256k1::All>) -> (SecretKey, PublicKey) {
-    secp.generate_keypair(&mut rand::rng())
+fn bytes32_to_u256(bytes: [u8; 32]) -> U256 {
+    let high = u128::from_be_bytes(bytes[0..16].try_into().unwrap());
+    let low = u128::from_be_bytes(bytes[16..32].try_into().unwrap());
+    U256::from((high, low))
 }
 
-pub fn generate_fhe_keypair(config: Config) -> (ClientKey, ServerKey) {
-    generate_keys(config)
+fn u256_to_bytes32(u256: U256) -> [u8; 32] {
+    let (high, low) = u256.to_low_high_u128();
+    let mut bytes = [0u8; 32];
+    bytes[0..16].copy_from_slice(&high.to_be_bytes());
+    bytes[16..32].copy_from_slice(&low.to_be_bytes());
+    bytes
 }
 
-fn split_sk_bytes(sk_bytes: [u8; 32]) -> (u128, u128) {
-    let high = u128::from_be_bytes(sk_bytes[0..16].try_into().unwrap());
-    let low = u128::from_be_bytes(sk_bytes[16..32].try_into().unwrap());
-    (high, low)
-}
-
-pub fn encrypt_sk(client_key: &ClientKey, sk: &SecretKey) -> FheUint256 {
-    let sk_u256 = U256::from(split_sk_bytes(sk.secret_bytes()));
-    FheUint256::encrypt(sk_u256, client_key)
-}
-
-pub fn decrypt_sk(ct: &FheUint256, client_key: &ClientKey) -> U256 {
-    ct.decrypt(client_key)
-}
-
-pub fn eth_address(public_key: &PublicKey) -> String {
-    let serialized = public_key.serialize_uncompressed();
+fn pk_to_eth_address(pk: &PublicKey) -> String {
+    let serialized = pk.serialize_uncompressed();
     let hash = Keccak256::digest(&serialized[1..]); // drop 0x04
     let address = &hash[12..]; // last 20 bytes
-    format!("0x{}", hex::encode(address))
-}
-
-pub fn derive_ec_pk(secp: &Secp256k1<secp256k1::All>, sk_u256: U256) -> PublicKey {
-    let (high, low) = sk_u256.to_low_high_u128();
-    let mut sk_bytes = [0u8; 32];
-
-    // Big-endian: high is most-significant 16 bytes
-    sk_bytes[0..16].copy_from_slice(&high.to_be_bytes());
-    sk_bytes[16..32].copy_from_slice(&low.to_be_bytes());
-
-    // Create a SecretKey from the full 32-byte array
-    let sk = SecretKey::from_byte_array(sk_bytes).unwrap();
-    sk.public_key(secp)
+    format!("0x{}", hex::encode(address)) // convert to hex string
 }
 
 fn main() {
-    let secp: Secp256k1<secp256k1::All> = Secp256k1::new();
-    let fhe_config = ConfigBuilder::default().build();
-
+    let secp = Secp256k1::new();
+    let config = ConfigBuilder::default().build();
     // Receiver (Bob) part
 
-    // Receiver (Bob) generates a key pair for (sk_2, pk_2)
-    let (sk_2, pk_2) = generate_secp256k1_keypair(&secp);
+    // Receiver (Bob) generates a ethereum key pair (sk_2, pk_2)
+    let (sk_2, pk_2) = secp.generate_keypair(&mut rand::rng());
 
-    // Receiver (Bob) generates a FHE key pair (sk_b, pk_b)
-    let (pk_b, sk_b) = generate_keys(fhe_config);
+    // Receiver (Bob) generates a FHE key pair (pk_b, sk_b)
+    let (pk_b, sk_b) = generate_keys(config);
 
-    // C_2 = Enc(sk_2, pk_b)
-    let c_2 = encrypt_sk(&pk_b, &sk_2);
+    // Receiver (Bob) encrypts sk_2 with pk_b to get c_2 and publishes it
+    let sk_2_u256 = bytes32_to_u256(sk_2.secret_bytes());
+    let c_2 = FheUint256::encrypt(sk_2_u256, &pk_b);
 
     // Sender (Alice) part
 
-    // 1. Alice (sender) generates a key pair (sk_1, pk_1) randomly for each SA
-    let (sk_1, pk_1) = generate_secp256k1_keypair(&secp);
+    // Sender (Alice) generates a ethereum key pair (sk_1, pk_1) for each SA Transaction
+    let (sk_1, pk_1) = secp.generate_keypair(&mut rand::rng());
 
-    // 2. Combine Public Keys: pk_z = pk_1 + pk_2
+    // Sender Combines Public Keys: pk_z = pk_1 + pk_2
     let pk_z = pk_1.combine(&pk_2).unwrap();
 
-    // 3. Convert Public Key to Ethereum Address
-    let sa = eth_address(&pk_z);
+    // Get Stealth Address (SA) from PK_z
+    let sa = pk_to_eth_address(&pk_z);
     println!("Stealth Address: {:?}", sa);
 
-    // 4. C_1 = Enc(sk_1, pk_b)
-    let c_1 = encrypt_sk(&pk_b, &sk_1);
+    // Sender (Alice) encrypts sk_1 with pk_b to get c_1 and publishes it
+    let sk_1_u256 = bytes32_to_u256(sk_1.secret_bytes());
+    let c_1 = FheUint256::encrypt(sk_1_u256, &pk_b);
 
-    // 5. Alice broadcasts C_1 to Bob
+    // Now sender does not know SA's private key, but knows where to send the transaction to Stealth Address.
 
-    // 6. Bob receives C_1 and computes C_2 = C_1 + C_bob
+    // Receiver(Bob) receives c_1 from Sender (Alice), and already has c_2. He computes C = C_1 + C_2
     set_server_key(sk_b);
-    let c = c_1 + c_2;
+    let c = FheUint256::sum([&c_1, &c_2]);
 
-    // 7. Bob decrypts C to get sk_z
-    let sk_z_uint256 = decrypt_sk(&c, &pk_b);
+    // Receiver(Bob) decrypts C to get sk_z
+    let sk_z_uint256: U256 = c.decrypt(&pk_b);
+    let sk_z = SecretKey::from_byte_array(u256_to_bytes32(sk_z_uint256)).unwrap();
+    let recovered_pk = sk_z.public_key(&secp);
+    let recoverd_eth_address = pk_to_eth_address(&recovered_pk);
 
-    let recovered_pk = derive_ec_pk(&secp, sk_z_uint256);
+    println!("Recovered Address: {:?}", recoverd_eth_address);
 
-    let recovered_eth_address = eth_address(&recovered_pk);
-    println!("Recovered Address: {:?}", recovered_eth_address);
+    let result = recoverd_eth_address == sa;
+    println!("Result: {:?}", result);
 }
