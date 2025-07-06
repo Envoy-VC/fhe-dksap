@@ -116,7 +116,9 @@ sequenceDiagram
 - Rust 1.70 or later
 - Cargo package manager
 
-### Building
+### Installation Options
+
+#### Option 1: From Git Repository (Latest Development)
 
 ```bash
 # Clone the repository
@@ -127,84 +129,113 @@ cd fhe-dksap
 cargo build --release
 
 # Run the example
-cargo run --release
+cargo run --example user_flow
 ```
 
-### Dependencies
+#### Option 2: As a Dependency in Your Project
 
-The project uses the following key dependencies:
+Add the following to your `Cargo.toml`:
 
-- **tfhe**: Fully Homomorphic Encryption library for Rust
-- **secp256k1**: Bitcoin/Ethereum elliptic curve cryptography
-- **sha3**: Keccak-256 hashing for Ethereum address generation
-- **hex**: Hexadecimal encoding utilities
+```toml
+[dependencies]
+fhe-dksap = { git = "https://github.com/Envoy-VC/fhe-dksap", tag = "v0.1.0" }
+# Or for latest development version:
+# fhe-dksap = { git = "https://github.com/Envoy-VC/fhe-dksap" }
+```
 
 ## Usage
+
+### Basic Example
 
 The main example demonstrates the complete FHE-DKSAP protocol:
 
 ```rust
-use fhe_dksap::{generate_stealth_address, recover_stealth_key};
+use secp256k1::Secp256k1;
+use tfhe::ConfigBuilder;
+use fhe_dksap::{
+    generate_ethereum_key_pair, generate_fhe_key_pair, generate_stealth_address,
+    recover_secret_key, encrypt_secret_key
+};
 
-// Bob (receiver) setup
-let (bob_keys, encrypted_sk2) = setup_receiver();
-
-// Alice (sender) creates stealth address
-let (stealth_address, encrypted_sk1) = generate_stealth_address(&bob_keys);
-
-// Bob recovers the stealth address private key
-let stealth_private_key = recover_stealth_key(&encrypted_sk1, &encrypted_sk2, &bob_keys);
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("🚀 Starting FHE-DKSAP Protocol Demonstration");
+    
+    // Initialize cryptographic contexts
+    let secp = Secp256k1::new();
+    let config = ConfigBuilder::default().build();
+    
+    // Phase 1: Bob (Receiver) Setup
+    println!("\n📋 Phase 1: Bob (Receiver) Setup");
+    
+    // Generate Ethereum wallet key pair for stealth address spending
+    let receiver_eth_keypair = generate_ethereum_key_pair(&secp)?;
+    
+    // Generate FHE key pair for encryption/decryption
+    let receiver_fhe_keypair = generate_fhe_key_pair(config)?;
+    
+    // Encrypt the receiver's secret key
+    let receiver_enc_secret_key = encrypt_secret_key(
+        receiver_eth_keypair.secret_key,
+        &receiver_fhe_keypair.public_key,
+    );
+    
+    println!("✅ Receiver setup completed");
+    
+    // Phase 2: Alice (Sender) Creates Stealth Address
+    println!("\n📋 Phase 2: Alice (Sender) Creates New Stealth Address");
+    
+    let stealth_address = generate_stealth_address(
+        &secp,
+        &receiver_eth_keypair.public_key,
+        &receiver_fhe_keypair.public_key,
+    )?;
+    
+    println!("✅ Stealth address generated");
+    println!("Stealth Address: {}", stealth_address.stealth_address);
+    
+    // Phase 3: Bob (Receiver) Recovers Stealth Address
+    println!("\n📋 Phase 3: Bob (Receiver) Recovers Stealth Address Secret Key");
+    
+    let recovered_keypair = recover_secret_key(
+        &secp,
+        &receiver_fhe_keypair,
+        &receiver_enc_secret_key,
+        &stealth_address.encrypted_secret_key,
+    )?;
+    
+    let phase3_end = phase3_start.elapsed();
+    println!("✅ Stealth address private key recovered");
+    
+    // Verification
+    println!("\n🔍 Verification");
+    let recovered_address = fhe_dksap::utils::pk_to_eth_address(&recovered_keypair.public_key);
+    let is_valid = stealth_address.stealth_address == recovered_address;
+    
+    if is_valid {
+        println!("✅ SUCCESS: Recovered stealth address matches generated address!");
+    } else {
+        println!("❌ ERROR: Address verification failed!");
+    }
+    
+    Ok(())
+}
 ```
 
-## Performance
+### Running Examples
 
-Based on the research evaluation, FHE-DKSAP provides:
+To run the examples:
 
-- **Computation Time**: ~0.036 seconds per stealth address generation
-- **Storage Efficiency**: Reduced on-chain storage compared to plain DKSAP
-- **Security**: Quantum-resistant through lattice-based cryptography
+```bash
+# Run the main example
+cargo run --example user_flow
+
+# Run with release optimizations (recommended for performance)
+cargo run --release --example user_flow
+```
 
 ## Contributing
 
-We welcome contributions to improve the FHE-DKSAP implementation! Please follow these guidelines:
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
-
-### Development Setup
-
-```bash
-# Install development dependencies
-cargo install cargo-audit
-cargo install cargo-fmt
-
-# Run tests
-cargo test
-
-# Format code
-cargo fmt
-
-# Check for security vulnerabilities
-cargo audit
-```
-
-### Code Style
-
-- Follow Rust naming conventions
-- Use meaningful variable names
-- Add comprehensive documentation
-- Include unit tests for cryptographic operations
-
-## Security Considerations
-
-- **Not Audited**: This implementation has not undergone formal security audit
-- **Research Code**: Intended for educational and research purposes only
-- **Key Management**: Proper key generation and storage is critical
-- **Randomness**: Use cryptographically secure random number generators
-- **Side Channels**: Be aware of timing and power analysis attacks
+We welcome contributions to improve the FHE-DKSAP implementation!
 
 ## Acknowledgements
 
