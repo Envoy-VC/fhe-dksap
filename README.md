@@ -221,31 +221,8 @@ This implementation is based on the groundbreaking research presented in:
 - **[secp256k1](https://github.com/bitcoin-core/secp256k1)** - Bitcoin/Ethereum elliptic curve implementation
 - **[sha3](https://github.com/RustCrypto/hashes)** - Keccak-256 hashing implementation
 
-### Research Contributors
-
-Special thanks to the Ethereum Research community and the original FHE-DKSAP authors:
-- @Mason-Mind
-- @georgesheth  
-- @dennis
-- @AshelyYan
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Citation
-
-If you use this implementation in your research, please cite:
-
-```bibtex
-@misc{fhe_dksap_rust,
-  title={FHE-DKSAP: Fully Homomorphic Encryption based Dual Key Stealth Address Protocol},
-  author={Ethereum Fellows},
-  year={2023},
-  url={https://ethresear.ch/t/fhe-dksap-fully-homomorphic-encryption-based-dual-key-stealth-address-protocol/16213}
-}
-```
-
----
 
 **Disclaimer**: This software is provided "as is" without warranty of any kind. Use at your own risk and only for research purposes.
