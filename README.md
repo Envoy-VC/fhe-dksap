@@ -118,7 +118,17 @@ sequenceDiagram
 
 ### Installation Options
 
-#### Option 1: From Git Repository (Latest Development)
+
+#### Option 1: From Crates.io
+
+Add the following to your `Cargo.toml`:
+
+```toml
+[dependencies]
+fhe-dksap = "0.1.0"
+```
+
+#### Option 2: From Git Repository (Latest Development)
 
 ```bash
 # Clone the repository
@@ -130,17 +140,6 @@ cargo build --release
 
 # Run the example
 cargo run --example user_flow
-```
-
-#### Option 2: As a Dependency in Your Project
-
-Add the following to your `Cargo.toml`:
-
-```toml
-[dependencies]
-fhe-dksap = { git = "https://github.com/Envoy-VC/fhe-dksap", tag = "v0.1.0" }
-# Or for latest development version:
-# fhe-dksap = { git = "https://github.com/Envoy-VC/fhe-dksap" }
 ```
 
 ## Usage
