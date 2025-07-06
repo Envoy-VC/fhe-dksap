@@ -1,10 +1,38 @@
 [package]
 name = "fhe_dksap"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+authors = ["Vedant Chainani <vedantchainani1084@gmail.com>"]
+description = "Fully Homomorphic Encryption based Dual-Key Stealth Address Protocol for enhanced privacy in blockchain transactions"
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/Envoy-VC/fhe-dksap"
+homepage = "https://github.com/Envoy-VC/fhe-dksap"
+documentation = "https://docs.rs/fhe_dksap"
+keywords = [
+    "fhe",
+    "fully-homomorphic-encryption",
+    "stealth-address",
+    "privacy",
+    "blockchain",
+    "ethereum",
+    "cryptography",
+    "dksap",
+    "zero-knowledge",
+    "quantum-resistant",
+]
+categories = ["cryptography", "blockchain", "privacy", "security"]
+rust-version = "1.81.0"
+
+# Publishing configuration
+publish = true
 
 [dependencies]
 hex = "0.4.3"
 secp256k1 = { version = "0.31.1", features = ["alloc", "std", "rand"] }
 sha3 = "0.10.8"
 tfhe = { version = "*", features = ["boolean", "shortint", "integer"] }
+
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

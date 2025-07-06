@@ -11,56 +11,6 @@
 //! - **Fully Homomorphic Encryption (FHE)**: Enables computation on encrypted data without decryption
 //! - **secp256k1**: The elliptic curve used by Ethereum for key generation and signing
 //!
-//! ## Protocol Flow
-//!
-//! 1. **Receiver Setup**: Bob generates Ethereum and FHE key pairs
-//! 2. **Stealth Address Creation**: Alice creates a stealth address using Bob's public keys
-//! 3. **Key Recovery**: Bob recovers the private key for the stealth address using FHE operations
-//!
-//! ## Security Features
-//!
-//! - **Privacy**: Stealth addresses are unlinkable to the receiver's main address
-//! - **Confidentiality**: Private key recovery uses FHE to keep computations encrypted
-//! - **Unforgeability**: Only the intended receiver can recover the stealth address private key
-//!
-//! ## Example Usage
-//!
-//! ```rust
-//! use secp256k1::Secp256k1;
-//! use tfhe::ConfigBuilder;
-//! use fhe_dksap::{
-//!     generate_ethereum_key_pair, generate_fhe_key_pair, generate_stealth_address,
-//!     recover_secret_key, encrypt_secret_key
-//! };
-//!
-//! // Initialize cryptographic contexts
-//! let secp = Secp256k1::new();
-//! let config = ConfigBuilder::default().build();
-//!
-//! // Receiver setup
-//! let receiver_eth_keypair = generate_ethereum_key_pair(&secp)?;
-//! let receiver_fhe_keypair = generate_fhe_key_pair(config)?;
-//! let receiver_enc_secret_key = encrypt_secret_key(
-//!     receiver_eth_keypair.secret_key,
-//!     &receiver_fhe_keypair.public_key,
-//! );
-//!
-//! // Sender creates stealth address
-//! let stealth_address = generate_stealth_address(
-//!     &secp,
-//!     &receiver_eth_keypair.public_key,
-//!     &receiver_fhe_keypair.public_key,
-//! )?;
-//!
-//! // Receiver recovers private key
-//! let recovered_keypair = recover_secret_key(
-//!     &secp,
-//!     &receiver_fhe_keypair,
-//!     &receiver_enc_secret_key,
-//!     &stealth_address.encrypted_secret_key,
-//! )?;
-//! ```
-//!
 //! ## Dependencies
 //!
 //! - `tfhe`: Fully Homomorphic Encryption library
@@ -77,10 +27,11 @@
 //! - FHE keys should be generated with appropriate security parameters
 //! - New Stealth Addresses should be generated for each transaction basis
 
-use secp256k1::{PublicKey, Secp256k1, SecretKey, rand};
+use secp256k1::{rand, PublicKey, Secp256k1, SecretKey};
 use std::error::Error;
 use std::fmt;
-use tfhe::{ClientKey, Config, FheUint256, ServerKey, generate_keys, prelude::*, set_server_key};
+
+use tfhe::{generate_keys, prelude::*, set_server_key, ClientKey, Config, FheUint256, ServerKey};
 
 pub mod utils;
 
@@ -184,7 +135,7 @@ pub struct StealthAddress {
 /// use fhe_dksap::generate_ethereum_key_pair;
 ///
 /// let secp = Secp256k1::new();
-/// let keypair = generate_ethereum_key_pair(&secp)?;
+/// let keypair = generate_ethereum_key_pair(&secp).unwrap();
 /// println!("Public key: {:?}", keypair.public_key);
 /// ```
 ///
@@ -224,7 +175,7 @@ pub fn generate_ethereum_key_pair(
 /// use fhe_dksap::generate_fhe_key_pair;
 ///
 /// let config = ConfigBuilder::default().build();
-/// let fhe_keypair = generate_fhe_key_pair(config)?;
+/// let fhe_keypair = generate_fhe_key_pair(config).unwrap();
 /// ```
 ///
 /// # Errors
@@ -264,8 +215,8 @@ pub fn generate_fhe_key_pair(config: Config) -> FheDKSAPResult<FheKeyPair> {
 /// let secp = Secp256k1::new();
 /// let config = ConfigBuilder::default().build();
 ///
-/// let eth_keypair = generate_ethereum_key_pair(&secp)?;
-/// let fhe_keypair = generate_fhe_key_pair(config)?;
+/// let eth_keypair = generate_ethereum_key_pair(&secp).unwrap();
+/// let fhe_keypair = generate_fhe_key_pair(config).unwrap();
 ///
 /// let encrypted_sk = encrypt_secret_key(
 ///     eth_keypair.secret_key,
@@ -300,13 +251,13 @@ pub fn encrypt_secret_key(secret_key: SecretKey, fhe_client_key: &ClientKey) -> 
 /// use secp256k1::Secp256k1;
 ///
 /// let secp = Secp256k1::new();
-/// let keypair1 = generate_ethereum_key_pair(&secp)?;
-/// let keypair2 = generate_ethereum_key_pair(&secp)?;
+/// let keypair1 = generate_ethereum_key_pair(&secp).unwrap();
+/// let keypair2 = generate_ethereum_key_pair(&secp).unwrap();
 ///
 /// let combined_pk = combine_public_keys(
 ///     &keypair1.public_key,
 ///     &keypair2.public_key,
-/// )?;
+/// ).unwrap();
 /// ```
 ///
 /// # Errors
@@ -352,15 +303,15 @@ pub fn combine_public_keys(pk1: &PublicKey, pk2: &PublicKey) -> FheDKSAPResult<P
 /// let config = ConfigBuilder::default().build();
 ///
 /// // Receiver setup
-/// let receiver_eth_keypair = generate_ethereum_key_pair(&secp)?;
-/// let receiver_fhe_keypair = generate_fhe_key_pair(config)?;
+/// let receiver_eth_keypair = generate_ethereum_key_pair(&secp).unwrap();
+/// let receiver_fhe_keypair = generate_fhe_key_pair(config).unwrap();
 ///
 /// // Generate stealth address
 /// let stealth_address = generate_stealth_address(
 ///     &secp,
 ///     &receiver_eth_keypair.public_key,
 ///     &receiver_fhe_keypair.public_key,
-/// )?;
+/// ).unwrap();
 ///
 /// println!("Stealth address: {}", stealth_address.stealth_address);
 /// ```
@@ -441,8 +392,8 @@ pub fn generate_stealth_address(
 /// let config = ConfigBuilder::default().build();
 ///
 /// // Receiver setup
-/// let receiver_eth_keypair = generate_ethereum_key_pair(&secp)?;
-/// let receiver_fhe_keypair = generate_fhe_key_pair(config)?;
+/// let receiver_eth_keypair = generate_ethereum_key_pair(&secp).unwrap();
+/// let receiver_fhe_keypair = generate_fhe_key_pair(config).unwrap();
 /// let receiver_enc_secret_key = encrypt_secret_key(
 ///     receiver_eth_keypair.secret_key,
 ///     &receiver_fhe_keypair.public_key,
@@ -453,7 +404,7 @@ pub fn generate_stealth_address(
 ///     &secp,
 ///     &receiver_eth_keypair.public_key,
 ///     &receiver_fhe_keypair.public_key,
-/// )?;
+/// ).unwrap();
 ///
 /// // Recover stealth address private key
 /// let recovered_keypair = recover_secret_key(
@@ -461,7 +412,7 @@ pub fn generate_stealth_address(
 ///     &receiver_fhe_keypair,
 ///     &receiver_enc_secret_key,
 ///     &stealth_address.encrypted_secret_key,
-/// )?;
+/// ).unwrap();
 /// ```
 ///
 /// # Errors

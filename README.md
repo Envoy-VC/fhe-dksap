@@ -1,6 +1,6 @@
 # FHE-DKSAP: Fully Homomorphic Encryption based Dual Key Stealth Address Protocol
 
-[![Rust](https://img.shields.io/badge/rust-1.70+-blue.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.81+-blue.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A Rust implementation of the FHE-DKSAP (Fully Homomorphic Encryption based Dual Key Stealth Address Protocol) for enhanced privacy in blockchain transactions.
@@ -113,7 +113,7 @@ sequenceDiagram
 
 ### Prerequisites
 
-- Rust 1.70 or later
+- Rust 1.81 or later
 - Cargo package manager
 
 ### Installation Options
